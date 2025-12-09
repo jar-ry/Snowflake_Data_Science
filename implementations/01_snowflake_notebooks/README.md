@@ -38,7 +38,7 @@ Run ML workflows directly in the Snowflake UI using Snowflake Notebooks. No loca
 ```
 01_snowflake_notebooks/
 ├── README.md                        # This file
-└── CLV_Model_Notebook.sql           # Notebook export (importable to Snowflake)
+└── CLV_Model_Notebook.ipynb         # Notebook export (importable to Snowflake)
 ```
 
 ## Prerequisites
@@ -50,7 +50,7 @@ Run ML workflows directly in the Snowflake UI using Snowflake Notebooks. No loca
 
 1. Log into Snowflake (Snowsight)
 2. Navigate to **Notebooks** in the left menu
-3. Create a new notebook or import the provided `.sql` file
+3. Create a new notebook or import the provided `.ipynb` file
 4. Select your warehouse and run cells
 
 ## What's Covered
@@ -59,7 +59,7 @@ Run ML workflows directly in the Snowflake UI using Snowflake Notebooks. No loca
 - [ ] Feature engineering with Python cells
 - [ ] Model training with Snowflake ML
 - [ ] Model evaluation and visualization
-- [ ] Saving predictions to tables
+- [ ] Saving predictions to ML registry
 
 ## Key Benefits
 

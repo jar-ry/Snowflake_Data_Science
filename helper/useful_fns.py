@@ -155,16 +155,16 @@ def create_FeatureStore(session, database, fs_schema, warehouse):
 
     return fs
 
-def create_SF_Session(schema, role = 'FS_QS_ROLE'):
-    # Scale Factor
-    scale_factor               = 'SF0001'
-
-    # Database
-    tpcxai_database_base       = f'TPCXAI_{scale_factor}_QUICKSTART'
-    tpcxai_database            = f'{tpcxai_database_base}_INC'
-
+def create_SF_Session(
+        schema = 'DS', 
+        database = 'RETAIL_REGRESSION_DEMO', 
+        role = 'RETAIL_REGRESSION_DEMO_ROLE',
+        warehouse = 'RETAIL_REGRESSION_DEMO_WH',
+        warehouse_size = 'MEDIUM',
+        connection_file = 'connection.json'
+    ):
     # Create Snowflake Session object
-    with open('connection.json', 'r') as f:
+    with open(connection_file, 'r') as f:
         connection_parameters = json.load(f)
     
     session = Session.builder.configs(connection_parameters).create()
@@ -173,16 +173,13 @@ def create_SF_Session(schema, role = 'FS_QS_ROLE'):
     snowpark_version = VERSION
 
     # Set  Environment
-    session.sql(f'''use database {tpcxai_database}''').collect()
+    session.sql(f'''use database {database}''').collect()
     session.sql(f'''use schema {schema}''').collect()
     session.sql(f'''use role {role}''').collect()
 
     # Create a Warehouse
-    #warehouse_env = f"""{tpcxai_database}_{schema}"""
-    warehouse_sz = 'MEDIUM'
-    warehouse_env = f'TPCXAI_{scale_factor}_QUICKSTART_WH'
-    session.sql(f'''use warehouse {warehouse_env}''').collect()
-    session.sql(f'''alter warehouse {warehouse_env} set warehouse_size = {warehouse_sz}''').collect()
+    session.sql(f'''use warehouse {warehouse}''').collect()
+    session.sql(f'''alter warehouse {warehouse} set warehouse_size = {warehouse_size}''').collect()
 
     # Current Environment Details
     print('\nConnection Established with the following parameters:')
@@ -194,7 +191,7 @@ def create_SF_Session(schema, role = 'FS_QS_ROLE'):
     print(f'Snowflake version           : {snowflake_environment[0][1]}')
     print(f'Snowpark for Python version : {snowpark_version[0]}.{snowpark_version[1]}.{snowpark_version[2]} \n')
 
-    return role, tpcxai_database, schema, session, warehouse_env
+    return role, database, schema, session, warehouse
 
 def get_spine_df(dataframe):
     spine_sdf =  dataframe.feature_df.group_by('O_CUSTOMER_SK').agg( F.max('LATEST_ORDER_DATE').as_('ASOF_DATE'))#.limit(10)
