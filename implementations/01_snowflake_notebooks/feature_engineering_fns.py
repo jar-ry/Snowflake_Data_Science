@@ -26,11 +26,27 @@ def uc01_load_data(customer_data: DataFrame, behavior_data: DataFrame) -> DataFr
         )\
         .rename(
             {
-                customer_data["CREATED_AT"]: "CREATED_AT",
-                customer_data["CUSTOMER_ID"]: "CUSTOMER_ID"
+                customer_data["CREATED_AT"]: "CUSTOMER_CREATED_AT",
+                customer_data["CUSTOMER_ID"]: "CUSTOMER_ID",
+                behavior_data["UPDATED_AT"]: "BEHAVIOR_UPDATED_AT"
             })
 
-    return raw_data[["CUSTOMER_ID", "AGE", "ANNUAL_INCOME", "LOYALTY_TIER", "TENURE_MONTHS", "SIGNUP_DATE", "CREATED_AT", "AVG_ORDER_VALUE", "PURCHASE_FREQUENCY", "RETURN_RATE", "LIFETIME_VALUE", "LAST_PURCHASE_DATE", "TOTAL_ORDERS"]]
+    return raw_data[[
+        "CUSTOMER_ID",
+        "AGE", 
+        "ANNUAL_INCOME", 
+        "LOYALTY_TIER", 
+        "TENURE_MONTHS", 
+        "SIGNUP_DATE", 
+        "CUSTOMER_CREATED_AT", 
+        "AVG_ORDER_VALUE", 
+        "PURCHASE_FREQUENCY", 
+        "RETURN_RATE", 
+        "LIFETIME_VALUE", 
+        "LAST_PURCHASE_DATE", 
+        "TOTAL_ORDERS", 
+        "BEHAVIOR_UPDATED_AT"
+    ]]
 
 def uc01_pre_process(data: DataFrame) -> DataFrame:
     """

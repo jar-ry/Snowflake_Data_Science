@@ -10,6 +10,7 @@ from snowflake.ml.dataset import Dataset
 from snowflake.ml._internal.exceptions import (
     dataset_errors
 )
+from datetime import datetime, timedelta
 
 
 def run_sql(sql_statement, session):
@@ -54,14 +55,17 @@ def check_and_update(df, model_name):
         lst[-1] = new_last_value
         return new_last_value 
     
-def dataset_check_and_update(session, dataset_name):
+def dataset_check_and_update(session, dataset_name, schema_name = None):
     """
     Check and update the version numbering scheme for Dataset
     to get the next version number for a dataset.
     session         : current session
     dataset_name : dataset_name to acquire next version for
     """
-    full_name = session.get_current_database() + "." + session.get_current_schema() + "." + dataset_name
+    if schema_name is None:
+        schema_name = session.get_current_schema()
+    full_name = session.get_current_database() + "." + schema_name + "." + dataset_name
+
     try:
         ds = Dataset.load(session=session, name=full_name)
         versions = ds.list_versions()
@@ -194,6 +198,7 @@ def create_SF_Session(
     return role, database, schema, session, warehouse
 
 def get_spine_df(dataframe):
-    spine_sdf =  dataframe.feature_df.group_by('O_CUSTOMER_SK').agg( F.max('LATEST_ORDER_DATE').as_('ASOF_DATE'))#.limit(10)
+    asof_date = datetime.now() 
+    spine_sdf =  dataframe.feature_df.group_by('CUSTOMER_ID').agg( F.lit(asof_date.strftime('%Y-%m-%d')).as_('ASOF_DATE'))#.limit(10)
     spine_sdf = spine_sdf.with_column("col_1", F.lit("values1"))
     return spine_sdf
