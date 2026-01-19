@@ -36,6 +36,8 @@ def uc01_load_data(customer_data: DataFrame, behavior_data: DataFrame) -> DataFr
         "AGE", 
         "ANNUAL_INCOME", 
         "LOYALTY_TIER", 
+        "GENDER",
+        "STATE",
         "TENURE_MONTHS", 
         "SIGNUP_DATE", 
         "CUSTOMER_CREATED_AT", 

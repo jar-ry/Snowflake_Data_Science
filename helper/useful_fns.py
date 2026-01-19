@@ -48,12 +48,14 @@ def check_and_update(df, model_name):
         all_versions = [version for sublist in list_of_lists for version in sublist]
 
         # Step 3: Sort the resulting single list
-        lst = sorted(all_versions)
-        last_value = lst[-1]
-        prefix, num = last_value.rsplit("_", 1)
-        new_last_value = f"{prefix}_{int(num)+1}"
-        lst[-1] = new_last_value
-        return new_last_value 
+        # Extract only the number part from each string
+        nums = [int(v.rsplit("_", 1)[-1]) for v in all_versions]
+        nums.sort()
+        
+        # Work with the highest number
+        last_num = nums[-1]
+        new_last_value = f"V_{last_num + 1}"
+        return new_last_value
     
 def dataset_check_and_update(session, dataset_name, schema_name = None):
     """
@@ -75,13 +77,13 @@ def dataset_check_and_update(session, dataset_name, schema_name = None):
     if len(versions) == 0:
         return "V_1"
     else:
-        # Step 3: Sort the resulting single list
-        lst = sorted(versions)
-        last_value = lst[-1]
-        prefix, num = last_value.rsplit("_", 1)
-        print(lst, last_value)
-        new_last_value = f"{prefix}_{int(num)+1}"
-        lst[-1] = new_last_value
+        # Extract only the number part from each string
+        nums = [int(v.rsplit("_", 1)[-1]) for v in versions]
+        nums.sort()
+        
+        # Work with the highest number
+        last_num = nums[-1]
+        new_last_value = f"V_{last_num + 1}"
         return new_last_value 
 
 def get_latest(df, model_name):
@@ -96,11 +98,19 @@ def get_latest(df, model_name):
     elif df[df["name"] == model_name].empty:
         return "V_1"
     else:
-        # Increment model_version if df is not a pandas Series
-        lst = sorted(ast.literal_eval(df["versions"][0]))
+        # 1. Parse string to list
+        raw_versions = ast.literal_eval(df["versions"][0])
+
+        # 2. Sort based on the numeric suffix only
+        # This removes the prefix context during comparison so "v_10" > "v_2"
+        lst = sorted(raw_versions, key=lambda x: int(x.rsplit("_", 1)[-1]))
+
+        # 3. Extract the highest value
         last_value = lst[-1]
         prefix, num = last_value.rsplit("_", 1)
-        new_last_value = f"{prefix}_{int(num)}"
+
+        # 4. Increment the number
+        new_last_value = f"{prefix}_{int(num) + 1}"
         return new_last_value 
 
 import sqlglot

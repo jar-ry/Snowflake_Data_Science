@@ -123,7 +123,9 @@ The demo creates two joinable tables for CLV prediction:
 | CUSTOMER_ID | INTEGER | Primary key |
 | AGE | INTEGER | Customer age (18-75) |
 | ANNUAL_INCOME | DECIMAL | Estimated income ($20k-$200k) |
-| LOYALTY_TIER | INTEGER | 1=Bronze, 2=Silver, 3=Gold, 4=Platinum |
+| LOYALTY_TIER | VARCHAR | Loyalty segment label (`low`, `medium`, `high`) |
+| GENDER | VARCHAR | Customer gender label (`male`, `female`) |
+| STATE | VARCHAR | Australian state/territory (NSW, VIC, QLD, WA, SA, TAS, NT, ACT) |
 | TENURE_MONTHS | INTEGER | Months as customer (1-120) |
 
 ### PURCHASE_BEHAVIOR (3 features + target)
