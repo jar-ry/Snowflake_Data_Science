@@ -186,6 +186,9 @@ def create_SF_Session(
     snowflake_environment = session.sql('SELECT current_user(), current_version()').collect()
     snowpark_version = VERSION
 
+    if 'role' in connection_parameters:
+        role = connection_parameters['role']
+
     # Set  Environment
     session.sql(f'''use database {database}''').collect()
     session.sql(f'''use schema {schema}''').collect()
