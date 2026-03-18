@@ -129,13 +129,15 @@ The demo creates two joinable tables for CLV prediction:
 | TENURE_MONTHS | INTEGER | Months as customer (1-120) |
 
 ### PURCHASE_BEHAVIOR (3 features + target)
+> **Note:** LIFETIME_VALUE represents **Expected Monthly Value** (AVG_ORDER_VALUE × PURCHASE_FREQUENCY with adjustments), not cumulative lifetime value. This enables fair comparison across customers regardless of tenure.
+
 | Column | Type | Description |
 |--------|------|-------------|
 | CUSTOMER_ID | INTEGER | Foreign key |
 | AVG_ORDER_VALUE | DECIMAL | Average transaction ($15-$500) |
 | PURCHASE_FREQUENCY | DECIMAL | Orders per month (0.1-8) |
 | RETURN_RATE | DECIMAL | % items returned (0-30%) |
-| LIFETIME_VALUE | DECIMAL | **🎯 Regression target** |
+| LIFETIME_VALUE | DECIMAL | **🎯 Expected Monthly Value** (regression target) |
 
 ### CLV_TRAINING_DATA (View)
 A unified view joining both tables with derived features for ML training.
