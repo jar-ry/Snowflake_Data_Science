@@ -1,15 +1,8 @@
 # FEATURE ENGINEERING FUNCTIONS
-
-from datetime import date, datetime
-from decimal import Decimal
-# SNOWFLAKE
-# Snowpark
-from snowflake.snowpark import Session, DataFrame, Window, WindowSpec
-# from snowflake.snowpark import Analytics
+from snowflake.snowpark import DataFrame
 import snowflake.snowpark.functions as F
-import snowflake.snowpark.types as T
-from snowflake.snowpark.version import VERSION
 
+# Feature Engineering Functions
 def uc01_load_data(customer_data: DataFrame, behavior_data: DataFrame) -> DataFrame:
     """
     Merges order, linetime and order_returns data and replaces Nulls/None with appropriate default values.
@@ -26,7 +19,7 @@ def uc01_load_data(customer_data: DataFrame, behavior_data: DataFrame) -> DataFr
         )\
         .rename(
             {
-                customer_data["CREATED_AT"]: "CUSTOMER_CREATED_AT",
+                customer_data["UPDATED_AT"]: "CUSTOMER_UPDATED_AT",
                 customer_data["CUSTOMER_ID"]: "CUSTOMER_ID",
                 behavior_data["UPDATED_AT"]: "BEHAVIOR_UPDATED_AT"
             })
@@ -34,13 +27,13 @@ def uc01_load_data(customer_data: DataFrame, behavior_data: DataFrame) -> DataFr
     return raw_data[[
         "CUSTOMER_ID",
         "AGE", 
-        "ANNUAL_INCOME", 
-        "LOYALTY_TIER", 
         "GENDER",
         "STATE",
+        "ANNUAL_INCOME", 
+        "LOYALTY_TIER", 
         "TENURE_MONTHS", 
         "SIGNUP_DATE", 
-        "CUSTOMER_CREATED_AT", 
+        "CUSTOMER_UPDATED_AT", 
         "AVG_ORDER_VALUE", 
         "PURCHASE_FREQUENCY", 
         "RETURN_RATE", 
@@ -69,10 +62,10 @@ def uc01_pre_process(data: DataFrame) -> DataFrame:
         "DAYS_SINCE_EXPECTED_LAST_PURCHASE_DATE",
     ], [
         F.col("TOTAL_ORDERS") / F.col("TENURE_MONTHS"),
-        F.datediff("day", F.col("LAST_PURCHASE_DATE"), F.current_date()),
-        F.datediff("day", F.col("SIGNUP_DATE"), F.current_date()),
+        F.datediff("day", F.col("LAST_PURCHASE_DATE"), F.col("BEHAVIOR_UPDATED_AT")),
+        F.datediff("day", F.col("SIGNUP_DATE"), F.col("BEHAVIOR_UPDATED_AT")),
         F.lit(30) / F.col("PURCHASE_FREQUENCY"),
-        F.round(F.datediff("day", F.col("LAST_PURCHASE_DATE"), F.current_date()) - F.lit((F.lit(30) / F.col("PURCHASE_FREQUENCY"))),0)
+        F.round(F.datediff("day", F.col("LAST_PURCHASE_DATE"), F.col("BEHAVIOR_UPDATED_AT")) - F.lit((F.lit(30) / F.col("PURCHASE_FREQUENCY"))),0)
     ])
 
     return data
