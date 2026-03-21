@@ -40,9 +40,7 @@ The pipeline (`CLV_MODEL_NOTEBOOK.ipynb`) mirrors `01_snowflake_notebooks` end-t
 ├── README.md                        # This file
 ├── CLV_MODEL_NOTEBOOK.ipynb         # Main pipeline notebook (run locally)
 ├── feature_engineering_fns.py       # uc01_load_data, uc01_pre_process
-└── helper/
-    ├── __init__.py
-    └── useful_fns.py                # Session creation, Registry/FeatureStore helpers,
+├── useful_fns.py                    # Session creation, Registry/FeatureStore helpers,
                                      #   version utilities, SQL formatting
 ```
 
@@ -53,18 +51,18 @@ The pipeline (`CLV_MODEL_NOTEBOOK.ipynb`) mirrors `01_snowflake_notebooks` end-t
 │      Local Machine       │          │            Snowflake                 │
 │                          │          │                                      │
 │  CLV_MODEL_NOTEBOOK.ipynb│          │  ┌──────────────────────────────┐    │
-│  feature_engineering_fns │  ──────► │  │  Warehouse (Feature Store,  │    │
-│  helper/useful_fns.py    │  Session │  │  Dataset, FeatureViews)     │    │
+│  feature_engineering_fns │  ──────► │  │  Warehouse (Feature Store,   │    │
+│  useful_fns.py           │  Session │  │  Dataset, FeatureViews)      │    │
 │                          │          │  └──────────────────────────────┘    │
 │  @remote decorator       │          │                                      │
 │  ───────────────────     │  ML Job  │  ┌──────────────────────────────┐    │
-│  train_remote() ─────────┼────────► │  │  Compute Pool (SPCS)        │    │
+│  train_remote() ─────────┼────────► │  │  Compute Pool (SPCS)         │    │
 │                          │          │  │  - 3 target instances        │    │
 │                          │          │  │  - Tuner + 10 HPO trials     │    │
 │                          │          │  │  - Experiment Tracking       │    │
 │                          │          │  └──────────────┬───────────────┘    │
 │                          │          │                 │                    │
-│  results.wait()    ◄─────┼──────────┤                 ▼                   │
+│  results.wait()    ◄─────┼──────────┤                 ▼                    │
 │  results.show_logs()     │          │          Model Registry              │
 └──────────────────────────┘          └──────────────────────────────────────┘
 ```

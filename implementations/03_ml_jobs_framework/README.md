@@ -1,137 +1,134 @@
-# 03 - ML Jobs
+# 03 — ML Jobs Framework
 
-**Maturity Level:** ⭐⭐⭐ Advanced | **Runs In:** Snowflake (Serverless)
+A Kedro/Cookiecutter-inspired boilerplate for building production ML pipelines on Snowflake, using **ML Jobs `submit_directory`** for serverless compute.
 
-## Overview
-
-Run production ML workflows using Snowflake ML Jobs. Schedule training pipelines, automate retraining, and leverage serverless compute for scalable, managed execution.
-
-## When to Use
-
-- ✅ Production-grade ML pipelines and retraining cadences
-- ✅ Cron/event-triggered jobs that need Snowflake-managed runtime
-- ✅ Teams ready to integrate with the Model Registry + monitoring
-- ⚠️ Requires knowledge of ML Jobs APIs and deployment workflow
-- ⚠️ Less interactive than notebooks—treat jobs like production code
-
-## Contents
+## Project Structure
 
 ```
-03_ml_jobs/
-├── README.md                    # This file
-├── jobs/
-│   ├── training_job.py          # Training job definition
-│   ├── feature_job.py           # Feature computation job
-│   └── inference_job.py         # Batch inference job
-├── config/
-│   ├── job_config.yaml          # Job configuration
-│   └── schedule_config.yaml     # Schedule definitions
-├── src/
-│   ├── features.py              # Feature logic
-│   ├── train.py                 # Training logic
-│   └── evaluate.py              # Evaluation logic
-└── notebooks/
-    ├── deploy_jobs.ipynb        # Deploy and manage jobs
+03_ml_jobs_framework/
+├── main.py                          # CLI entrypoint — run one or all pipelines
+├── conda.yml                        # Conda environment (runtime dependencies)
+├── pyproject.toml                   # Project metadata, black/ruff/isort config
+├── .pre-commit-config.yaml          # Pre-commit hooks (black, ruff, isort, etc.)
+├── conf/
+│   └── parameters.yml               # Single YAML config for all pipelines
+├── pipelines/
+│   ├── feature_pipeline.py          # Feature Store: load → preprocess → register → dataset
+│   ├── training_pipeline.py         # Submit HPO training job via submit_directory
+│   ├── promotion_pipeline.py        # Promote best model version (alias, tags, default)
+│   └── monitoring_pipeline.py       # Set up ModelMonitor for drift detection
+└── src/
+    ├── session.py                   # Snowpark session factory (local execution)
+    ├── feature_engineering/
+    │   ├── data_loader.py           # Join CUSTOMERS + PURCHASE_BEHAVIOR
+    │   ├── preprocessing.py         # Feature derivation (Snowpark DataFrame ops)
+    │   └── feature_store.py         # Entity, FeatureView, Dataset registration
+    ├── modelling/
+    │   ├── pipeline.py              # sklearn Pipeline (ColumnTransformer + XGBRegressor)
+    │   ├── splitter.py              # Train/val split, DataConnector utilities
+    │   ├── evaluate.py              # MAE, MAPE, R² evaluation
+    │   └── train.py                 # ML Job entrypoint — HPO with Tuner (submit_directory)
+    ├── ml_engineering/
+    │   ├── promotion.py             # Best version selection, alias/tag/default promotion
+    │   ├── serving.py               # Inference service deployment, batch predictions
+    │   └── monitoring.py            # ModelMonitor setup
+    └── utils/
+        └── versioning.py            # Auto-increment version helpers for models & datasets
 ```
 
-## Prerequisites
+## Snowflake Services Used
 
-- Completed `Step01_Setup.ipynb` (data setup)
-- Completed `02_snowpark_sessions/` (recommended)
-- Understanding of Snowflake ML Jobs API
+| Service | Purpose |
+|---|---|
+| **ML Jobs (`submit_directory`)** | Submits `src/` directory to a compute pool; `modelling/train.py` is the entrypoint |
+| **Feature Store** | Managed FeatureViews backed by Dynamic Tables with scheduled refresh |
+| **Model Registry** | Versioned model storage with aliases, tags, and default versions |
+| **Experiment Tracking** | Per-trial parameter/metric/model logging during HPO |
+| **HPO Tuner** | RandomSearch over XGBoost hyperparameters across distributed trials |
+| **Datasets & DataConnectors** | Immutable, versioned snapshots for reproducible training |
+| **Model Monitor** | Continuous drift and performance monitoring |
 
 ## Quick Start
 
-1. Open `notebooks/deploy_jobs.ipynb`
-2. Configure job parameters
-3. Deploy job to Snowflake
-4. Set up schedule (optional)
-5. Monitor runs
+```bash
+# Run the full pipeline end-to-end
+python main.py all
 
-## What's Covered
+# Run individual pipelines
+python main.py feature      # Feature engineering + Feature Store
+python main.py training     # Submit HPO training ML Job
+python main.py promotion    # Promote best model
+python main.py monitoring   # Set up monitoring
 
-- [ ] ML Job definition and deployment
-- [ ] Scheduled training pipelines
-- [ ] Serverless compute configuration
-- [ ] Model Registry integration
-- [ ] Job monitoring and logging
-- [ ] Batch inference jobs
-
-## How It Works
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Snowflake                              │
-│                                                             │
-│  ┌─────────────┐      ┌─────────────┐      ┌─────────────┐ │
-│  │  Schedule/  │      │   ML Job    │      │   Model     │ │
-│  │  Trigger    │ ───► │  Execution  │ ───► │  Registry   │ │
-│  └─────────────┘      └─────────────┘      └─────────────┘ │
-│         │                   │                     │         │
-│         │                   ▼                     │         │
-│         │         ┌─────────────────┐            │         │
-│         │         │   Serverless    │            │         │
-│         │         │    Compute      │            │         │
-│         │         │  (Auto-scaled)  │            │         │
-│         │         └─────────────────┘            │         │
-│         │                   │                     │         │
-│         ▼                   ▼                     ▼         │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │              Feature Store / Tables                  │   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
+# Use custom config
+python main.py all --config conf/parameters.yml
 ```
 
-## Key Features
+## How `submit_directory` Works
 
-| Feature | Why it matters |
-|---------|----------------|
-| Serverless compute | Snowflake manages scaling and infrastructure |
-| Schedules & triggers | Automate retraining via cron or events |
-| Model Registry ready | Register versions as part of your pipeline |
-| Built-in monitoring | Job run history, logging, and metrics |
-| Security & governance | Runs within Snowflake's perimeter |
-
-## ML Job Example
+Unlike the `@remote` decorator (used in `02_ml_jobs_notebook`), this framework submits the entire `src/` directory to a Snowflake compute pool:
 
 ```python
-from snowflake.ml.jobs import Job
+from snowflake.ml.jobs import submit_directory
 
-# Define job
-job = Job(
-    name="CLV_TRAINING_JOB",
-    source="@MY_STAGE/training_job.py",
-    compute_pool="ML_COMPUTE_POOL",
-    schedule="0 0 * * 0"  # Weekly
+job = submit_directory(
+    "./src/",                          # directory to upload
+    "CLV_MODEL_POOL_CPU",              # compute pool
+    entrypoint="modelling/train.py",   # script to execute
+    args=["--dataset", "...", ...],    # CLI arguments
+    stage_name="payload_stage",
+    session=session,
 )
-
-# Deploy and run
-job.deploy()
-job.run()
-
-# Check status
-job.status()
+job.wait()
 ```
 
-## Typical Workflow
+Inside the container, `Session.builder.getOrCreate()` provides the Snowpark session automatically — no credentials needed.
 
+## Configuration
+
+All parameters live in `conf/parameters.yml`. Key sections:
+
+- **snowflake** — connection, database, schema, warehouse
+- **feature_store** — entity, feature view, refresh frequency, dataset name
+- **model_registry** — schema for versioned models
+- **modelling** — model name, feature/target columns, encoders, train/test split
+- **compute** — pool name, stage, trial count, instance count
+- **serving** — inference service config
+- **monitoring** — prediction/baseline tables, refresh intervals
+
+## Environment Setup
+
+```bash
+# Create conda environment
+conda env create -f conda.yml
+conda activate clv_ml_framework
+
+# Install pre-commit hooks
+pre-commit install
+
+# Run linters manually
+black .
+ruff check . --fix
+isort .
 ```
-[Define Job] ──► [Deploy to Snowflake] ──► [Schedule/Trigger]
-                                                  │
-                                                  ▼
-[Monitor] ◄── [Log Results] ◄── [Execute] ──► [Save Model]
-```
 
-## Production Considerations
+## Dev Tooling
 
-- **Monitoring**: Set up alerts for job failures
-- **Logging**: Review job logs for debugging
-- **Versioning**: Use Model Registry for model versions
-- **Testing**: Test jobs in dev before production
-- **Rollback**: Have rollback procedures ready
+| Tool | Config | Purpose |
+|---|---|---|
+| **black** | `pyproject.toml` | Code formatting (line-length=120) |
+| **ruff** | `pyproject.toml` | Fast linting (pyflakes, pycodestyle, isort, bugbear) |
+| **isort** | `pyproject.toml` | Import sorting (black-compatible profile) |
+| **pre-commit** | `.pre-commit-config.yaml` | Git hooks: black, ruff, isort, trailing whitespace, YAML check, large file guard |
 
-## Skills Required
+## Comparison with Other Implementations
 
-- Familiarity with Snowflake ML Jobs + Container Runtime
-- Understanding of production ML patterns (deploy, monitor, retrain)
-- Comfort working with scheduling concepts and Model Registry
+| Aspect | 01 (Notebooks) | 02 (ML Jobs Notebook) | **03 (Framework)** |
+|---|---|---|---|
+| Execution | Interactive cells | `@remote` decorator | `submit_directory` |
+| Structure | Single notebook | Notebook + helper `.py` | Modular packages |
+| Config | Hardcoded | Hardcoded | `parameters.yml` |
+| Reusability | Low | Medium | **High** |
+| CI/CD Ready | No | Partial | **Yes** |
+| HPO | In-notebook Tuner | In-notebook Tuner | **Entrypoint script** |
+| Best For | Exploration | Prototyping | **Production** |
