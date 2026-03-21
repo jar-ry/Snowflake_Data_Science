@@ -1,120 +1,109 @@
-# 02 - Snowpark Sessions
+# 02 - ML Jobs Notebook
 
-**Maturity Level:** ⭐⭐ Intermediate | **Runs In:** Local IDE
+**Maturity Level:** ⭐⭐ Intermediate | **Runs In:** Local IDE → Snowflake Container Runtime
 
 ## Overview
 
-Develop and run ML workflows locally using Snowpark Python sessions. Connect from your favorite IDE (VS Code, PyCharm, Jupyter) to Snowflake and execute code that runs on Snowflake compute.
+Develop locally in your favorite IDE and submit compute-heavy work (HPO, training) to Snowflake as an ML Job. The `@remote` decorator ships your function and its nested dependencies to a Snowflake compute pool, so you get local debugging flexibility with cloud-scale execution.
 
 ## When to Use
 
-- ✅ Local development with full IDE debugging + extensions
-- ✅ Configuration-driven projects that live in Git
-- ✅ Teams that need unit tests, CI, and modular code
-- ⚠️ Requires managing Python/conda environments yourself
-- ⚠️ You own Snowflake connection files/credentials
+- ✅ Local IDE development with full debugging, linting, and extensions
+- ✅ Modular code split across `.py` helper files and notebooks
+- ✅ Heavy training offloaded to a dedicated SPCS compute pool
+- ✅ Teams that version-control notebooks and modules in Git
+- ⚠️ Requires managing a local Python/conda environment
+- ⚠️ Requires a `connection.json` file for Snowflake credentials
+- ⚠️ Requires a compute pool provisioned in Snowflake
+
+## What the Notebook Does
+
+The pipeline (`CLV_MODEL_NOTEBOOK.ipynb`) mirrors `01_snowflake_notebooks` end-to-end, but executes training remotely via ML Jobs:
+
+| Step | What Happens |
+|------|--------------|
+| **Session creation** | Connects from local Python using `connection.json` via `create_SF_Session()` |
+| **Feature Store setup** | Creates `MODELLING` and `FEATURE_STORE` schemas, registers a `CUSTOMER` entity |
+| **Feature engineering** | Uses imported functions from `feature_engineering_fns.py` (`uc01_load_data`, `uc01_pre_process`) |
+| **FeatureView creation** | Registers a managed FeatureView backed by a Dynamic Table |
+| **Dataset generation** | Builds a versioned Snowflake Dataset from the FeatureView |
+| **HPO + Training (ML Job)** | The `train_remote()` function is decorated with `@remote("CLV_MODEL_POOL_CPU")` — the entire function (including nested `train()`, `build_pipeline()`, `evaluate_model()`) is shipped to the compute pool as an ML Job. The Tuner runs 10 `RandomSearch` trials across 3 target instances. |
+| **Experiment tracking** | Each trial logs params, metrics, and model artifacts via `ExperimentTracking` |
+| **Model promotion** | Selects best trial, sets default version, alias, tag, and copies to `PROD_SCHEMA` |
+| **Inference service** | Deploys the model as a container service on SPCS |
+| **Model monitoring** | Configures a `ModelMonitor` for ongoing tracking |
 
 ## Contents
 
 ```
-02_snowpark_sessions/
-├── README.md                    # This file
-├── config/
-│   └── config.yaml              # Configuration
-├── src/
-│   ├── __init__.py
-│   ├── data_loader.py           # Data loading utilities
-│   ├── features.py              # Feature engineering
-│   ├── train.py                 # Model training
-│   └── evaluate.py              # Evaluation metrics
-├── notebooks/
-│   └── development.ipynb        # Development notebook
-├── tests/
-│   └── test_features.py         # Unit tests
-└── main.py                      # CLI entry point
+02_ml_jobs_notebook/
+├── README.md                        # This file
+├── CLV_MODEL_NOTEBOOK.ipynb         # Main pipeline notebook (run locally)
+├── feature_engineering_fns.py       # uc01_load_data, uc01_pre_process
+└── helper/
+    ├── __init__.py
+    └── useful_fns.py                # Session creation, Registry/FeatureStore helpers,
+                                     #   version utilities, SQL formatting
 ```
-
-## Prerequisites
-
-- Completed `Step01_Setup.ipynb` (data setup)
-- Activated conda environment (`conda activate snowflake_ds`)
-- Configured `connection.json`
-
-## Quick Start
-
-```bash
-# Activate environment
-conda activate snowflake_ds
-
-# Run via notebook
-jupyter lab notebooks/development.ipynb
-
-# Or run via CLI
-python main.py --config config/config.yaml
-```
-
-## What's Covered
-
-- [ ] Snowpark session management
-- [ ] Configuration-driven pipelines
-- [ ] Modular code organization
-- [ ] Feature engineering functions
-- [ ] Model training and evaluation
-- [ ] Unit testing
 
 ## How It Works
 
 ```
-┌─────────────────────────┐         ┌─────────────────────────┐
-│     Local Machine       │         │       Snowflake         │
-│  ┌───────────────────┐  │         │  ┌─────────────────┐    │
-│  │   Your IDE        │  │         │  │    Warehouse    │    │
-│  │  (VS Code, etc.)  │  │         │  │    (Compute)    │    │
-│  │                   │  │         │  └────────┬────────┘    │
-│  │  ┌─────────────┐  │  │         │           │             │
-│  │  │  Snowpark   │  │  │ ──────► │           ▼             │
-│  │  │  Session    │──┼──┼─────────┼──►  Execute Query       │
-│  │  └─────────────┘  │  │         │           │             │
-│  │        │          │  │         │           ▼             │
-│  │        ▼          │  │ ◄────── │     Return Results      │
-│  │   Local Results   │  │         │                         │
-│  └───────────────────┘  │         └─────────────────────────┘
-└─────────────────────────┘
+┌──────────────────────────┐          ┌──────────────────────────────────────┐
+│      Local Machine       │          │            Snowflake                 │
+│                          │          │                                      │
+│  CLV_MODEL_NOTEBOOK.ipynb│          │  ┌──────────────────────────────┐    │
+│  feature_engineering_fns │  ──────► │  │  Warehouse (Feature Store,  │    │
+│  helper/useful_fns.py    │  Session │  │  Dataset, FeatureViews)     │    │
+│                          │          │  └──────────────────────────────┘    │
+│  @remote decorator       │          │                                      │
+│  ───────────────────     │  ML Job  │  ┌──────────────────────────────┐    │
+│  train_remote() ─────────┼────────► │  │  Compute Pool (SPCS)        │    │
+│                          │          │  │  - 3 target instances        │    │
+│                          │          │  │  - Tuner + 10 HPO trials     │    │
+│                          │          │  │  - Experiment Tracking       │    │
+│                          │          │  └──────────────┬───────────────┘    │
+│                          │          │                 │                    │
+│  results.wait()    ◄─────┼──────────┤                 ▼                   │
+│  results.show_logs()     │          │          Model Registry              │
+└──────────────────────────┘          └──────────────────────────────────────┘
 ```
 
-## Key Features
+## Key Difference from 01_snowflake_notebooks
 
-| Feature | Why it matters |
-|---------|----------------|
-| Full IDE workflows | Debug, lint, refactor with your favorite tools |
-| Git + CI ready | Treat the project like any Python repo |
-| Modular code | Organize into packages, tests, and configs |
-| Mixed compute | Develop locally, execute in Snowflake |
-| Testing support | Run unit/integration tests before deployment |
-| Flexibility | Extend with any Python libs compatible with Snowpark |
+| | 01 Snowflake Notebooks | 02 ML Jobs Notebook |
+|-|------------------------|---------------------|
+| **Where code lives** | Inline in Snowflake Notebook | Local `.ipynb` + `.py` helper files |
+| **Session** | `get_active_session()` (automatic) | `Session.builder.configs(...)` via `connection.json` |
+| **HPO compute** | `scale_cluster(5)` — scales the notebook cluster | `@remote("CLV_MODEL_POOL_CPU", target_instances=3)` — submits an ML Job |
+| **Code organization** | Self-contained single notebook | Modular: notebook imports from `feature_engineering_fns.py` and `helper/` |
+| **Job lifecycle** | Synchronous (cells block) | Asynchronous: `results.wait()`, `results.show_logs()`, `results.result()` |
+| **Best for** | Learning, demos, fast iteration | IDE-first teams who want SPCS-backed distributed training |
 
-## Snowpark Session Example
+## Prerequisites
 
-```python
-from snowflake.snowpark import Session
+- Completed `Step01_Setup.ipynb` (creates database, tables, mock data)
+- Local conda environment (`conda activate snowflake_ds`) with `snowflake-ml-python>=1.30.0`
+- A `connection.json` file in the notebook's parent directory (or adjust the path in cell 6)
+- A CPU compute pool (e.g. `CLV_MODEL_POOL_CPU`) provisioned in Snowflake
+- A stage named `payload_stage` for ML Job artifacts
 
-# Create session
-session = Session.builder.configs(connection_params).create()
+## Quick Start
 
-# Use Snowpark DataFrames
-df = session.table("CUSTOMER_DEMOGRAPHICS")
-df.filter(df["AGE"] > 30).show()
-
-# Close session
-session.close()
+```bash
+conda activate snowflake_ds
+jupyter lab implementations/02_ml_jobs_notebook/CLV_MODEL_NOTEBOOK.ipynb
 ```
 
-## Skills Required
+Run cells top-to-bottom. The `train_remote()` call submits the job — use `results.wait()` to block until complete, then inspect with `results.show_logs()` and `results.result()`.
 
-- Solid Python development fundamentals
-- Comfort with IDE tooling (VS Code, PyCharm, etc.)
-- Git basics + environment (conda) management
+## Snowflake Services Used
 
-## Next Steps
-
-Once comfortable, progress to `03_ml_jobs/` for production-ready scheduled pipelines.
+- Feature Store (Entity, FeatureView, Dynamic Tables)
+- Model Registry (versioning, aliases, tags)
+- Datasets & DataConnectors
+- Experiment Tracking
+- ML Jobs (`@remote` decorator → Snowflake Container Runtime)
+- Tuner / HPO (`tune.Tuner`, `RandomSearch`, 3 target instances)
+- SPCS Model Service (real-time inference)
+- Model Monitoring
